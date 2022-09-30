@@ -2,7 +2,7 @@
 import socketserver
 import os.path
 
-# Copyright 2013 Abram Hindle, Eddie Antonio Santos
+# Copyright 2022 Abram Hindle, Eddie Antonio Santos, Xuantong Ma
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,26 +30,15 @@ import os.path
 
 class MyWebServer(socketserver.BaseRequestHandler):
     
-    def css_file(self, path):
+    def css_and_html_file(self, path, type):
         file = open( "./www"+ path,'r').read()
         status_code = "HTTP/1.1 200 OK\r\n"
-        content_type = "Content-Type: text/css;\r\n"
+        content_type = "Content-Type: text/{};\r\n".format(type)
         length = str(len(file))
         content_length = "Content-Length: {}\r\n".format(length)
         connection = "Connection : close\r\n"
         respond = status_code + content_type + content_length  + connection + file
         #print("111111111111111111111111111111111111111111")
-        return respond
-    
-    def html_file(self, path):
-        file = open( "./www"+ path,'r').read()
-        status_code = "HTTP/1.1 200 OK\r\n"
-        content_type = "Content-Type: text/html;\r\n"
-        length = str(len(file))
-        content_length = "Content-Length: {}\r\n".format(length)
-        connection = "Connection : close \r\n"
-        respond = status_code + content_type + content_length + connection + file
-        #print("222222222222222222222222222222222222222222")
         return respond
 
     def index_file1(self, path):
@@ -80,27 +69,34 @@ class MyWebServer(socketserver.BaseRequestHandler):
         return respond
 
     def handle(self):
+        # receive request and get the method and path
         self.data = self.request.recv(1024).strip()
         print ("Got a request of: %s\n" % self.data)
         request = self.data.decode().split()
         method = request[0]
         path = request[1]
+
+        # any other method except "GET" cannot handle
         if method != "GET":
             respond = "HTTP/1.1 405 Method Not Allowed"
-            #print("777777777777777777777777777777777777")
         else:
+            # check if is a real path
             check = os.path.realpath(f"./www/{path}").startswith(os.path.realpath("./www"))
             if check == False:
                 respond = "HTTP/1.1 404 Not Found"
-                #print("88888888888888888888888888888888888")   
             else:
+                # check each path with different types of files and send back a response
                 if os.path.exists("./www{}".format(path)) and path.endswith("css"):
-                        respond = self.css_file(path)
+                        # the server supports mime-types for CSS
+                        respond = self.css_and_html_file(path,"css")
                 elif os.path.exists("./www{}".format(path)) and path.endswith("html"):
-                        respond = self.html_file(path)                          
+                        # the server supports mime-types for HTML
+                        respond = self.css_and_html_file(path,"html")                          
                 elif os.path.exists("./www{}/index.html".format(path)) and path.endswith("/"):
+                        # the server can return index.html from directories
                         respond = self.index_file1(path)
                 else:
+                        # repsond 301 to correct paths
                         respond = self.index_file2(path)
         self.request.sendall(respond.encode())
 
